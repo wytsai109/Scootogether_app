@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scootogether 2.0 | 次世代機車即時媒合與智慧共乘系統</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Header Bar -->
+  <header class="navbar">
+    <div class="nav-brand">
+      <div class="brand-logo">
+        <span class="logo-icon">🛵</span>
+        <div class="logo-text">
+          <span class="brand-title">Scootogether<span class="brand-ver">2.0</span></span>
+          <span class="brand-sub">次世代機車即時媒合與智慧共乘系統 (Node.js 22 & WebSockets)</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- View Mode Switcher -->
+    <nav class="nav-roles" id="roleTabs">
+      <button class="role-btn active" data-tab="tab-fleet">
+        <span class="btn-icon">🏙️</span> 全城調度中樞
+      </button>
+      <button class="role-btn" data-tab="tab-passenger">
+        <span class="btn-icon">👤</span> 乘客叫車端
+      </button>
+      <button class="role-btn" data-tab="tab-driver">
+        <span class="btn-icon">🛵</span> 司機接單 HUD
+      </button>
+      <button class="role-btn" data-tab="tab-api">
+        <span class="btn-icon">⚡</span> API 互動中台
+      </button>
+      <button class="role-btn" data-tab="tab-algo">
+        <span class="btn-icon">📐</span> 演算法與原理
+      </button>
+    </nav>
+
+    <!-- Telemetry Status Pill -->
+    <div class="nav-telemetry">
+      <div class="status-pill online">
+        <span class="pulse-dot"></span>
+        <span id="wsStatusText">WebSocket 連線中...</span>
+      </div>
+      <div class="wallet-pill" id="navWalletPill" title="電子錢包餘額">
+        <span class="wallet-icon">💳</span>
+        <span id="navWalletBalance">$1,250 NTD</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Container -->
+  <main class="main-container">
+
+    <!-- ==================== TAB 1: 全城調度中樞 (Fleet Command) ==================== -->
+    <section class="tab-content active" id="tab-fleet">
+      <div class="fleet-layout">
+        <!-- Live Map Canvas Area -->
+        <div class="map-wrapper card glass">
+          <div class="map-hud-overlay top-left">
+            <span class="hud-tag">LIVE GPS TELEMETRY</span>
+            <h3 class="hud-title">台北市大都會區 • 機車動態巡弋與即時調度</h3>
+          </div>
+          <div class="map-hud-overlay top-right">
+            <label class="toggle-control">
+              <input type="checkbox" id="heatmapToggle">
+              <span class="toggle-slider"></span>
+              <span class="toggle-label">需求熱點圖 (Demand Heatmap)</span>
+            </label>
+            <button class="btn btn-sm btn-ghost" id="centerMapBtn">🎯 重置視野</button>
+          </div>
+
+          <!-- Dynamic Vector Map Canvas -->
+          <canvas id="fleetCanvas" width="960" height="640"></canvas>
+
+          <!-- Map Legend -->
+          <div class="map-legend">
+            <div class="legend-item"><span class="legend-dot green"></span> 可接單空車 (Available)</div>
+            <div class="legend-item"><span class="legend-dot orange"></span> 載客/接送中 (On Trip)</div>
+            <div class="legend-item"><span class="legend-dot cyan"></span> 台北指標地標 (Hotspots)</div>
+            <div class="legend-item"><span class="legend-dot pink"></span> 即時共乘路徑 (Active Corridor)</div>
+          </div>
+        </div>
+
+        <!-- Right Fleet Telemetry Sidebar -->
+        <aside class="fleet-sidebar">
+          <!-- Real-Time Metrics Grid -->
+          <div class="metrics-grid">
+            <div class="metric-card glass">
+              <div class="metric-header">在線機車運力</div>
+              <div class="metric-value text-cyan" id="metricTotalFleet">12</div>
+              <div class="metric-sub">活躍司機率 100%</div>
+            </div>
+            <div class="metric-card glass">
+              <div class="metric-header">即時派單平均抵達</div>
+              <div class="metric-value text-green" id="metricAvgEta">2.8 <span class="unit">min</span></div>
+              <div class="metric-sub">極速秒級推播</div>
+            </div>
+            <div class="metric-card glass">
+              <div class="metric-header">累積動態共乘配對</div>
+              <div class="metric-value text-purple" id="metricPoolingMatches">18</div>
+              <div class="metric-sub">省下 35% 車資</div>
+            </div>
+            <div class="metric-card glass">
+              <div class="metric-header">累計節能減碳</div>
+              <div class="metric-value text-emerald" id="metricCarbonSaved">582 <span class="unit">kg</span></div>
+              <div class="metric-sub">等同種植 48 棵樹</div>
+            </div>
+          </div>
+
+          <!-- Live Driver Fleet List -->
+          <div class="card glass driver-fleet-card">
+            <div class="card-header">
+              <h4>🛵 在線車隊名冊 (Real-time Fleet)</h4>
+              <span class="badge badge-cyan" id="fleetCountBadge">12 台巡弋中</span>
+            </div>
+            <div class="driver-scroll-list" id="driverScrollList">
+              <!-- Populated dynamically by app.js -->
+            </div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 2: 乘客即時叫車端 (Passenger App) ==================== -->
+    <section class="tab-content" id="tab-passenger">
+      <div class="passenger-layout">
+        <!-- Left: Booking Form -->
+        <div class="booking-card card glass">
+          <div class="card-header">
+            <h3>📍 機車行程預約與智慧共乘</h3>
+            <span class="badge badge-emerald">動態智能計費</span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">出發地點 (Origin)</label>
+            <div class="select-wrapper">
+              <select id="passengerOrigin" class="form-select">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">目的地 (Destination)</label>
+            <div class="select-wrapper">
+              <select id="passengerDest" class="form-select">
+                <!-- Populated by JS -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Ride Mode Comparison -->
+          <div class="ride-modes">
+            <div class="mode-card selected" id="modePooling" data-mode="POOLING">
+              <div class="mode-badge-top">推薦 • 綠能共乘</div>
+              <div class="mode-title-row">
+                <span class="mode-icon">🌱</span>
+                <span class="mode-name">智慧共乘 (Smart Pooling)</span>
+              </div>
+              <div class="mode-desc">同路段同向動態拼車，雙方享 65 折，減碳同行</div>
+              <div class="mode-price-row">
+                <span class="mode-price text-green" id="pricePooling">$68 <span class="curr">NTD</span></span>
+                <span class="mode-old-price" id="priceOriginal">$105</span>
+                <span class="mode-tag text-emerald">-35% 折扣</span>
+              </div>
+              <div class="mode-eco" id="ecoEstimate">🍃 減少 420g CO₂ 排放</div>
+            </div>
+
+            <div class="mode-card" id="modeSolo" data-mode="SOLO">
+              <div class="mode-title-row">
+                <span class="mode-icon">⚡</span>
+                <span class="mode-name">疾速專車 (Solo Ride)</span>
+              </div>
+              <div class="mode-desc">直達專屬接送，起步價 $45 NTD，零等待直奔目的地</div>
+              <div class="mode-price-row">
+                <span class="mode-price text-cyan" id="priceSolo">$105 <span class="curr">NTD</span></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Nearby Drivers Radar Preview -->
+          <div class="nearby-preview">
+            <div class="nearby-header">
+              <span>附近空車雷達</span>
+              <span class="text-green" id="nearbyCountText">偵測到 3 台可用車輛</span>
+            </div>
+            <div class="nearby-pill-row" id="nearbyPills">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Action Buttons -->
+          <div class="booking-actions">
+            <button class="btn btn-primary btn-block" id="btnRequestRide">
+              <span class="btn-spinner" id="btnReqSpinner" style="display:none;"></span>
+              <span class="btn-text">一鍵呼叫機車 (Request Ride)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Right: Active Trip Status & Driver Tracking -->
+        <div class="passenger-status-card card glass">
+          <div class="card-header">
+            <h3>🧭 行程即時追蹤面板 (Live Tracking)</h3>
+            <span class="badge" id="tripStatusBadge">尚未發起行程</span>
+          </div>
+
+          <div class="trip-empty-state" id="tripEmptyState">
+            <div class="empty-icon">🛵</div>
+            <h4>目前沒有進行中的行程</h4>
+            <p>請在左側選擇起訖點並點擊「一鍵呼叫機車」，系統將秒級媒合附近最優司機。</p>
+          </div>
+
+          <div class="trip-active-state" id="tripActiveState" style="display: none;">
+            <!-- Trip Progress Steps -->
+            <div class="trip-stepper">
+              <div class="step-item" id="stepSearching">
+                <div class="step-circle">1</div>
+                <div class="step-label">媒合中</div>
+              </div>
+              <div class="step-line" id="line1"></div>
+              <div class="step-item" id="stepMatched">
+                <div class="step-circle">2</div>
+                <div class="step-label">已接單</div>
+              </div>
+              <div class="step-line" id="line2"></div>
+              <div class="step-item" id="stepArrived">
+                <div class="step-circle">3</div>
+                <div class="step-label">已抵達</div>
+              </div>
+              <div class="step-line" id="line3"></div>
+              <div class="step-item" id="stepInTransit">
+                <div class="step-circle">4</div>
+                <div class="step-label">載送中</div>
+              </div>
+              <div class="step-line" id="line4"></div>
+              <div class="step-item" id="stepCompleted">
+                <div class="step-circle">5</div>
+                <div class="step-label">已完成</div>
+              </div>
+            </div>
+
+            <!-- Matched Driver Card -->
+            <div class="driver-badge-card" id="matchedDriverCard">
+              <div class="driver-avatar">🛵</div>
+              <div class="driver-info">
+                <div class="driver-name-row">
+                  <h4 id="driverCardName">林志豪</h4>
+                  <span class="rating-badge" id="driverCardRating">★ 4.96</span>
+                </div>
+                <div class="driver-model" id="driverCardModel">Gogoro SuperSport (電能黑)</div>
+                <div class="driver-plate" id="driverCardPlate">車牌: MKL-8821</div>
+              </div>
+              <div class="driver-eta-box">
+                <span class="eta-label">預估抵達</span>
+                <span class="eta-time text-cyan" id="driverCardEta">2 分鐘</span>
+              </div>
+            </div>
+
+            <!-- Trip Meta Details -->
+            <div class="trip-meta-box">
+              <div class="meta-row">
+                <span class="meta-title">訂單編號:</span>
+                <span class="meta-val font-mono" id="activeTripId">-</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-title">行程模式:</span>
+                <span class="meta-val" id="activeTripMode">智慧共乘 (Smart Pooling)</span>
+              </div>
+              <div class="meta-row">
+                <span class="meta-title">車資試算:</span>
+                <span class="meta-val text-green font-bold" id="activeTripFare">$68 NTD</span>
+              </div>
+            </div>
+
+            <!-- Cancel Button -->
+            <button class="btn btn-danger btn-block btn-sm" id="btnCancelTrip">取消本次行程</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 3: 司機接單端 (Driver App HUD) ==================== -->
+    <section class="tab-content" id="tab-driver">
+      <div class="driver-layout">
+        <!-- Driver Profile HUD -->
+        <div class="driver-hud-card card glass">
+          <div class="driver-hud-header">
+            <div class="driver-profile-left">
+              <div class="avatar-box">👨‍✈️</div>
+              <div>
+                <h3 class="driver-hud-name">林志豪 (You)</h3>
+                <span class="driver-hud-tag">認證優良機車司機 • Gogoro SuperSport [MKL-8821]</span>
+              </div>
+            </div>
+            <div class="driver-duty-toggle">
+              <span class="duty-label">執勤狀態:</span>
+              <button class="btn btn-sm btn-green" id="driverDutyBtn">● 線上接單中</button>
+            </div>
+          </div>
+
+          <!-- Driver KPI Tiles -->
+          <div class="driver-stats-row">
+            <div class="stat-tile">
+              <span class="tile-title">今日營收</span>
+              <span class="tile-val text-green" id="driverTodayEarnings">$1,820 <span class="unit">NTD</span></span>
+            </div>
+            <div class="stat-tile">
+              <span class="tile-title">累計完單數</span>
+              <span class="tile-val text-cyan">1,240 <span class="unit">趟</span></span>
+            </div>
+            <div class="stat-tile">
+              <span class="tile-title">乘客好評率</span>
+              <span class="tile-val text-purple">99.4%</span>
+            </div>
+            <div class="stat-tile">
+              <span class="tile-title">接單率</span>
+              <span class="tile-val text-emerald">98.2%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Incoming Dispatch Alert Modal/Box -->
+        <div class="card glass incoming-box" id="incomingDispatchBox" style="display: none;">
+          <div class="incoming-header">
+            <div class="radar-ping"></div>
+            <div>
+              <span class="badge badge-orange">即時派單雷達 • 15 秒搶單倒數</span>
+              <h3 id="incomingRouteTitle">台北車站 ➔ 台北101</h3>
+            </div>
+            <div class="countdown-circle" id="countdownSec">15s</div>
+          </div>
+
+          <div class="incoming-body">
+            <div class="incoming-grid">
+              <div class="in-item">
+                <span class="in-label">乘客姓名</span>
+                <span class="in-val" id="incomingPassenger">陳品妍</span>
+              </div>
+              <div class="in-item">
+                <span class="in-label">接送距離</span>
+                <span class="in-val text-cyan" id="incomingDistance">1.2 km (約 3 分鐘)</span>
+              </div>
+              <div class="in-item">
+                <span class="in-label">模式</span>
+                <span class="in-val badge badge-purple" id="incomingMode">智慧共乘</span>
+              </div>
+              <div class="in-item">
+                <span class="in-label">預估收入 (85% 分潤)</span>
+                <span class="in-val text-green font-bold" id="incomingEarnings">$58 NTD</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="incoming-actions">
+            <button class="btn btn-green btn-lg flex-1" id="btnAcceptRide">⚡ 立即接單 (Accept)</button>
+            <button class="btn btn-ghost btn-lg" id="btnDeclineRide">跳過 (Decline)</button>
+          </div>
+        </div>
+
+        <!-- Driver On-Trip Controller -->
+        <div class="card glass driver-trip-controller" id="driverTripController" style="display: none;">
+          <div class="card-header">
+            <h3>🛵 行程導航與里程狀態推進 (Driver Milestone Controller)</h3>
+            <span class="badge badge-cyan" id="driverTripStatus">進行中</span>
+          </div>
+
+          <p class="desc">您可以透過下方控制按鈕模擬司機在道路上的各項狀態里程碑：</p>
+
+          <div class="controller-btn-row">
+            <button class="btn btn-primary" id="btnDriverArrived">
+              ① 已抵達乘客上車點 (Arrived)
+            </button>
+            <button class="btn btn-purple" id="btnDriverStartTrip" disabled>
+              ② 開始行程 / 載客前往 (In Transit)
+            </button>
+            <button class="btn btn-green" id="btnDriverCompleteTrip" disabled>
+              ③ 抵達目的地 / 完成結算 (Complete)
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 4: API 互動中台 (Swagger / API Explorer) ==================== -->
+    <section class="tab-content" id="tab-api">
+      <div class="api-layout">
+        <div class="card glass api-sidebar">
+          <div class="card-header">
+            <h3>⚡ RESTful API 清單</h3>
+            <span class="badge badge-cyan">Node.js 22</span>
+          </div>
+          <div class="api-list">
+            <div class="api-item active" data-endpoint="fleet">
+              <span class="http-badge get">GET</span>
+              <span class="api-path">/api/fleet</span>
+            </div>
+            <div class="api-item" data-endpoint="nearby">
+              <span class="http-badge get">GET</span>
+              <span class="api-path">/api/drivers/nearby</span>
+            </div>
+            <div class="api-item" data-endpoint="estimate">
+              <span class="http-badge post">POST</span>
+              <span class="api-path">/api/rides/estimate</span>
+            </div>
+            <div class="api-item" data-endpoint="request">
+              <span class="http-badge post">POST</span>
+              <span class="api-path">/api/rides/request</span>
+            </div>
+            <div class="api-item" data-endpoint="wallet">
+              <span class="http-badge get">GET</span>
+              <span class="api-path">/api/wallet/balance</span>
+            </div>
+            <div class="api-item" data-endpoint="stats">
+              <span class="http-badge get">GET</span>
+              <span class="api-path">/api/stats/overview</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="card glass api-details">
+          <div class="api-detail-header">
+            <div>
+              <span class="http-badge get" id="activeApiMethod">GET</span>
+              <span class="api-url font-mono" id="activeApiUrl">/api/fleet</span>
+            </div>
+            <button class="btn btn-primary btn-sm" id="btnRunApi">🚀 執行測試 (Send Request)</button>
+          </div>
+
+          <p class="api-desc" id="activeApiDesc">取得當前台北市所有在線機車車隊的即時 GPS 座標、車型、車牌、司機評分與在線狀態。</p>
+
+          <div class="api-request-box" id="apiReqBox" style="display: none;">
+            <div class="box-title">Request Payload (JSON)</div>
+            <textarea class="code-editor" id="apiReqPayload" rows="4"></textarea>
+          </div>
+
+          <div class="api-response-box">
+            <div class="box-title-row">
+              <span class="box-title">Response Output</span>
+              <span class="badge badge-emerald" id="apiStatusBadge">200 OK • 6ms</span>
+            </div>
+            <pre class="code-output" id="apiResponseOutput">{ "loading": "點擊上方按鈕立即發送 API 請求" }</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== TAB 5: 演算法與原理 (Architecture & Math) ==================== -->
+    <section class="tab-content" id="tab-algo">
+      <div class="algo-layout">
+        <div class="card glass algo-card">
+          <div class="card-header">
+            <h3>🌍 1. 大圓航線距離：Haversine 空間索引演算法</h3>
+            <span class="badge badge-cyan">空間幾何</span>
+          </div>
+          <p>
+            在地球曲率模型中，平面歐式距離在長距離運算時會產生嚴重經緯度失真。Scootogether 採用高精度 <strong>Haversine Formula</strong> 計算乘客與周遭機車的精準球面距離：
+          </p>
+          <div class="math-box font-mono">
+            d = 2R · arcsin( √( sin²(Δφ/2) + cos(φ₁) · cos(φ₂) · sin²(Δλ/2) ) )
+          </div>
+          <p class="algo-meta">其中 $R = 6,371.0088\text{ km}$ 為地球平均半徑，$φ$ 為緯度，$λ$ 為經度。系統藉此實現方圓 $3.5\text{ km}$ 內的毫秒級鄰近車輛快搜。</p>
+        </div>
+
+        <div class="card glass algo-card">
+          <div class="card-header">
+            <h3>🤝 2. 智慧動態共乘：同向廊道重疊率 (Corridor Overlap Ratio)</h3>
+            <span class="badge badge-purple">動態拼車演算法</span>
+          </div>
+          <p>
+            當兩位乘客 $A$ 與 $B$ 提出叫車請求時，系統計算兩者行駛向量的重疊比率 $\eta$：
+          </p>
+          <div class="math-box font-mono">
+            η = (Distance_shared) / (Distance_A + Distance_B) · cos(θ_bearing_diff)
+          </div>
+          <p class="algo-meta">
+            當 $\eta \ge 0.65$ 且繞路時間 $\Delta t \le 4\text{ mins}$ 時觸發共乘媒合。雙方皆享有 <strong>35% 車資折扣</strong>，司機獲得 <strong>+18% 增額收益</strong>，平均每公里減排 <strong>142g CO₂</strong>。
+          </p>
+        </div>
+
+        <div class="card glass algo-card">
+          <div class="card-header">
+            <h3>🔄 3. 行程有限狀態機 (Trip Finite State Machine, FSM)</h3>
+            <span class="badge badge-emerald">分散式一致性</span>
+          </div>
+          <p>行程生命週期受到嚴格狀態流轉驗證，杜絕非法躍遷與狀態競爭：</p>
+          <div class="fsm-diagram">
+            <span class="fsm-node">SEARCHING (尋找中)</span>
+            <span class="fsm-arrow">➔</span>
+            <span class="fsm-node">MATCHED (司機接單)</span>
+            <span class="fsm-arrow">➔</span>
+            <span class="fsm-node">ARRIVED (已抵達)</span>
+            <span class="fsm-arrow">➔</span>
+            <span class="fsm-node">IN_TRANSIT (行程中)</span>
+            <span class="fsm-arrow">➔</span>
+            <span class="fsm-node green">COMPLETED (扣款完成)</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

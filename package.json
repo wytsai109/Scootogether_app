@@ -1,0 +1,33 @@
+{
+  "name": "scootogether",
+  "version": "2.0.0",
+  "description": "Next-Gen Urban Scooter Mobility, Smart Pooling & Dispatching Platform (Node.js 22 & Real-time WebSockets)",
+  "type": "module",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/wytsai109/Scootogether_app.git"
+  },
+  "keywords": [
+    "scooter",
+    "ride-hailing",
+    "carpooling",
+    "mobility",
+    "dispatch-engine",
+    "real-time",
+    "websockets",
+    "nodejs",
+    "haversine"
+  ],
+  "author": "wytsai109",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  }
+}
